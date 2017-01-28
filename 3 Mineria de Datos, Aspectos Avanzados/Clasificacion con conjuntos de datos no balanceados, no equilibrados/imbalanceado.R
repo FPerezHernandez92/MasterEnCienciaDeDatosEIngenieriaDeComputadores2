@@ -1,4 +1,4 @@
-setwd("~/Dropbox/zMaster/zRStudio/Master-en-Ciencia-De-Datos-e-Ingeniería-de-Computadores2/3 Mineria de Datos, Aspectos Avanzados/Clasificacion con conjuntos de datos no balanceados, no equilibrados")
+setwd("~/Dropbox/zMaster/zRStudio/Master-en-Ciencia-De-Datos-e-Ingeniería-de-Computadores-2/3 Mineria de Datos, Aspectos Avanzados/Clasificacion con conjuntos de datos no balanceados, no equilibrados")
 
 #Implementación y evaluación de técnicas de clasificación imbalanceada
 #Leemos el dataset subclus
