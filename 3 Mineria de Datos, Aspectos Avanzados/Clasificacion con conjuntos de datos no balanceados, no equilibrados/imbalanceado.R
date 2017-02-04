@@ -192,26 +192,32 @@ syntheticInstance <- function(elemento, cercanos){
   aleatorio.cercanos <- sample(1:5,1)
   valor.aleatorio.cercanos <- cercanos[aleatorio.cercanos]
   #Saco los valores att1 y att2 de mi elemento y del aleatorio cercano
-  att1.x <- subclus[valor.aleatorio.cercanos,1]
-  att1.y <- subclus[elemento,1]
+  att1.x <- subclus[elemento,1]
+  att1.y <- subclus[valor.aleatorio.cercanos,1]
   att1.z = att1.y - att1.x
-  att2.x <- subclus[valor.aleatorio.cercanos,2]
-  att2.y <- subclus[elemento,2]
+  att2.x <- subclus[elemento,2]
+  att2.y <- subclus[valor.aleatorio.cercanos,2]
   att2.z = att2.y - att2.x
   multiplicador = runif(1,0,1)
+  print("elemento,multiplciador,att1.x,att1.y,att1.z,att2.x,att2.y,att2.z,aleatoriodecercanos:")
+  print(elemento);print(multiplicador);print(att1.x);print(att1.y);print(att1.z);print(att2.x);print(att2.y);print(att2.z);print(cercanos[aleatorio.cercanos])
   att1.z = att1.x + (multiplicador*att1.z)
   att2.z = att2.x + (multiplicador*att2.z)
+  print("Final z: ");print(att1.z);print(att2.z)
   salida = NULL
   salida$Att1 = att1.z
   salida$Att2 = att2.z
-  return(salida)
+  return(list(salida,aleatorio.cercanos))
+  #return(salida)
 }
 set.seed(1234)
 nueva.instancia <- syntheticInstance(x1,cercanos1)
 
+
 knn.pred = NULL
 SMOTE <- function(slot,visualizacion=FALSE){
   train <- subclus[-CVperm[,slot], -3]
+  indices.clase.minoritaria <- c(1:dim(CVperm)[1])[-CVperm[,slot]]
   cop.classes.train <- subclus[-CVperm[,slot], 3]
   test  <- subclus[CVperm[,slot], -3]
   minority.indices <- (1:dim(train)[1])[cop.classes.train == 0]
@@ -223,18 +229,36 @@ SMOTE <- function(slot,visualizacion=FALSE){
   print("Se van a imprimir: ")
   print(length(minority.indices))
   for (j in 1:length(minority.indices)){
-    cercanos <- getNeighbors(minority.indices[j],minority.indices,train)
-    instancia.nueva <- syntheticInstance(minority.indices[j],cercanos)
+    j=0
+    
+    j=j+1
+    cercanos <- getNeighbors(indices.clase.minoritaria[j],indices.clase.minoritaria,train)
+    salida.synthetic <- syntheticInstance(indices.clase.minoritaria[j],cercanos)
+    instancia.nueva = salida.synthetic[[1]]
+    aleatorio.cercanos = salida.synthetic[[2]]
     copitrain <- rbind(copitrain, instancia.nueva)
     instancias.nuevas <- rbind(instancias.nuevas,instancia.nueva)
     classes.train <- c(classes.train,0)
+    plot(train$Att1,train$Att2,title(slot))
+    points(train[classes.train==0,1],train[classes.train==0,2],col="grey")
+    points(train[classes.train==1,1],train[classes.train==1,2],col="white") 
+    puntos.de.referencia = subclus[indices.clase.minoritaria[j],-3]
+    puntos.de.referencia = rbind(puntos.de.referencia, subclus[cercanos[aleatorio.cercanos],-3])
+    points(puntos.de.referencia,col="red")
+    points(instancias.nuevas,col="green")
+    puntos.de.referencia
+    instancias.nuevas=NULL
+    #a=0
+    
+    #j=j-1
+    
   }
   predictions <-  knn(copitrain, test, classes.train, k = 3)
   knn.pred <- c(knn.pred, predictions)
   if (visualizacion == TRUE){
-    plot(copitrain$Att1,copitrain$Att2)
+    plot(copitrain$Att1,copitrain$Att2,title(slot))
     points(copitrain[classes.train==0,1],copitrain[classes.train==0,2],col="red")
-    points(copitrain[classes.train==1,1],copitrain[classes.train==1,2],col="blue") 
+    points(copitrain[classes.train==1,1],copitrain[classes.train==1,2],col="white") 
     #for(int h in 1:5){
      # if (h != slot)
       #  points(
@@ -246,8 +270,11 @@ SMOTE <- function(slot,visualizacion=FALSE){
   return(knn.pred)
 }
 set.seed(1234)
-slot=1
-knn.pred <- SMOTE(slot)
+slot=2
+for (j in 1:5){
+  knn.pred <- SMOTE(j,TRUE)
+}
+knn.pred <- SMOTE(slot,TRUE)
 
 #points(subclus[subclus$Class==0,1],subclus[subclus$Class==0,2],col="red")
 tpr.SMOTE <- sum(subclus$Class[as.vector(CVperm)] == 0 & knn.pred == 1) / nClass0
