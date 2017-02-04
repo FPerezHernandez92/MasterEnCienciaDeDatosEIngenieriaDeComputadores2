@@ -18,6 +18,7 @@ points(subclus[subclus$Class==0,1],subclus[subclus$Class==0,2],col="red")
 points(subclus[subclus$Class==1,1],subclus[subclus$Class==1,2],col="blue")  
 
 #Dividimos el dataset en 5 partes para la validación cruzada
+set.seed(1234)
 pos <- (1:dim(subclus)[1])[subclus$Class==0]
 neg <- (1:dim(subclus)[1])[subclus$Class==1]
 #Hacemos las divisiones en los 5 conjuntos de cada clase
@@ -42,13 +43,13 @@ acc
 
 tnr <- sum(subclus$Class[as.vector(CVperm)] == 1 & knn.pred == 2) / nClass1 
 tnr
-#es bueno para la clase negativa al obtener un 0.972
+#es bueno para la clase negativa al obtener un 0.968
 tpr <- sum(subclus$Class[as.vector(CVperm)] == 0 & knn.pred == 1) / nClass0 
 tpr
-#no es tan bueno para la case positiva ya que obtiene un 0.76
+#no es tan bueno para la case positiva ya que obtiene un 0.74
 gmean <- sqrt(tpr * tnr) # no es tan bueno como decia el accuracy 
 gmean
-#Obtenemos de media un 0.85
+#Obtenemos de media un 0.846
 
 # 1. Vamos a aplicar ROS, de forma que replicaremos los ejemplos positivos
 knn.pred = NULL
@@ -72,13 +73,13 @@ for( i in 1:5){
 
 tpr.ROS <- sum(subclus$Class[as.vector(CVperm)] == 0 & knn.pred == 1) / nClass0
 tpr.ROS 
-#Hemos pasado de un 0.76 a un 0.92 mejorando mucho en la clase positiva
+#Hemos pasado de un 0.74 a un 0.92 mejorando mucho en la clase positiva
 tnr.ROS <- sum(subclus$Class[as.vector(CVperm)] == 1 & knn.pred == 2) / nClass1 
 tnr.ROS
-#Hemos pasado de un 0.97 a un 0.90 en la clase negativa
+#Hemos pasado de un 0.968 a un 0.896 en la clase negativa
 gmean.ROS <- sqrt(tpr.ROS * tnr.ROS) 
 gmean.ROS
-#La media ha pasado de 0.85 a 0.91, mejorando
+#La media ha pasado de 0.846 a 0.907, mejorando
 
 # 2. Vamos a aplicar RUS, de forma que quito elementos de la clase mayoritaria
 set.seed(1234)
@@ -99,13 +100,13 @@ for( i in 1:5){
 } 
 tpr.RUS <- sum(subclus$Class[as.vector(CVperm)] == 0 & knn.pred == 1) / nClass0
 tpr.RUS
-#Hemos pasado de 0.92 a 0.93
+#Hemos pasado de 0.92 a 0.96
 tnr.RUS <- sum(subclus$Class[as.vector(CVperm)] == 1 & knn.pred == 2) / nClass1
 tnr.RUS
-#Hemos pasado de 0.90 a 0.80
+#Hemos pasado de 0.896 a 0.804
 gmean.RUS <- sqrt(tpr.RUS * tnr.RUS) 
 gmean.RUS
-#Hemos bajado el rendimiento con respecto a ROS, ya que ha bajado de 0.91 a 0.86,
+#Hemos bajado el rendimiento con respecto a ROS, ya que ha bajado de 0.907 a 0.878,
 #pero se ha mejorado al inicial sin aplicar ninguna técnica
 
 #Visualizamos como quedaría la técnica RUS en el dataset
@@ -138,4 +139,126 @@ distance <- function(i, j, data){
 #TAREAS:
 #hacer getinstance. hacer syntheticInstance para crear instancias. comparar los resultados de este nuevo train en ros y rus. 
 #(opcional) hacer implementación de smote
+
+getNeighbors <- function(x, minority.instances, train){ 
+  #1 Por cada x, recorro todas las instancias minoritarias y busco sus 5 elementos más cercanos
+  #1.1 Creo la función que devuelva la distancia de x a cada elemento de la clase minoritaria
+  cercano = function(y){
+    distance(x,y,train)
+  }
+  #1.2 Aplico para encontrar la distancia
+  vector.minoritario <- minority.instances %in% train[,1]
+  valores.minoritarios <- minority.instances[vector.minoritario]
+  distancias <- sapply(valores.minoritarios,cercano )
+  #1.3 Busco los 5 elementos con menor distancia salvo el mismo
+  matriz.elemento.distancia <- cbind(valores.minoritarios,distancias)
+  menores = function(matriz){
+    #Ordeno las distancias
+    a = matriz[,2]
+    a <- a[order(a)]
+    #Si la primera distancia es 0, es que es el mismo y lo elimino
+    if (a[1]==0){
+      a <- c(a[2:length(a)])
+    }
+    #Me quedo con las 5 más pequeñas
+    a <- c(a[1:5])
+    return(a)
+  }
+  los.menores <- menores(matriz.elemento.distancia)
+  los.5.cercanos <- matriz.elemento.distancia[,2] %in% los.menores
+  valores.los.5.cercanos <- valores.minoritarios[los.5.cercanos]
+  return(valores.los.5.cercanos)
+}
+
+#Prueba de funcionamiento de la distancia
+x1 = CVperm[1,1]
+t1 = as.matrix(CVperm[,1])
+x2 = CVperm[1,2]
+t2 = as.matrix(CVperm[,2])
+x3 = CVperm[1,3]
+t3 = as.matrix(CVperm[,3])
+x4 = CVperm[1,4]
+t4 = as.matrix(CVperm[,4])
+x5 = CVperm[1,5]
+t5 = as.matrix(CVperm[,5])
+cercanos1 <- getNeighbors(x1,minority.indices,t1)
+cercanos2 <- getNeighbors(x2,minority.indices,t2)
+cercanos3 <- getNeighbors(x3,minority.indices,t3)
+cercanos4 <- getNeighbors(x4,minority.indices,t4)
+cercanos5 <- getNeighbors(x5,minority.indices,t5)
+
+syntheticInstance <- function(elemento, cercanos){
+  #Cojo un elemento de los cercanos aleatoriamente
+  aleatorio.cercanos <- sample(1:5,1)
+  valor.aleatorio.cercanos <- cercanos[aleatorio.cercanos]
+  #Saco los valores att1 y att2 de mi elemento y del aleatorio cercano
+  att1.x <- subclus[valor.aleatorio.cercanos,1]
+  att1.y <- subclus[elemento,1]
+  att1.z = att1.y - att1.x
+  att2.x <- subclus[valor.aleatorio.cercanos,2]
+  att2.y <- subclus[elemento,2]
+  att2.z = att2.y - att2.x
+  multiplicador = runif(1,0,1)
+  att1.z = att1.x + (multiplicador*att1.z)
+  att2.z = att2.x + (multiplicador*att2.z)
+  salida = NULL
+  salida$Att1 = att1.z
+  salida$Att2 = att2.z
+  return(salida)
+}
+set.seed(1234)
+nueva.instancia <- syntheticInstance(x1,cercanos1)
+
+knn.pred = NULL
+SMOTE <- function(slot,visualizacion=FALSE){
+  train <- subclus[-CVperm[,slot], -3]
+  cop.classes.train <- subclus[-CVperm[,slot], 3]
+  test  <- subclus[CVperm[,slot], -3]
+  minority.indices <- (1:dim(train)[1])[cop.classes.train == 0]
+  #to.add <- dim(train)[1] - 2 * length(minority.indices)
+  copitrain <- train
+  classes.train <- cop.classes.train
+  instancias.nuevas <- NULL
+  x1a <- minority.indices[1] 
+  print("Se van a imprimir: ")
+  print(length(minority.indices))
+  for (j in 1:length(minority.indices)){
+    cercanos <- getNeighbors(minority.indices[j],minority.indices,train)
+    instancia.nueva <- syntheticInstance(minority.indices[j],cercanos)
+    copitrain <- rbind(copitrain, instancia.nueva)
+    instancias.nuevas <- rbind(instancias.nuevas,instancia.nueva)
+    classes.train <- c(classes.train,0)
+  }
+  predictions <-  knn(copitrain, test, classes.train, k = 3)
+  knn.pred <- c(knn.pred, predictions)
+  if (visualizacion == TRUE){
+    plot(copitrain$Att1,copitrain$Att2)
+    points(copitrain[classes.train==0,1],copitrain[classes.train==0,2],col="red")
+    points(copitrain[classes.train==1,1],copitrain[classes.train==1,2],col="blue") 
+    #for(int h in 1:5){
+     # if (h != slot)
+      #  points(
+       #   subclus[CVperm_pos[1,1],1],subclus[CVperm_pos[1,1],2]
+        #  ,col="orange"
+    #}
+    points(instancias.nuevas,col="green")
+  }
+  return(knn.pred)
+}
+set.seed(1234)
+slot=1
+knn.pred <- SMOTE(slot)
+
+#points(subclus[subclus$Class==0,1],subclus[subclus$Class==0,2],col="red")
+tpr.SMOTE <- sum(subclus$Class[as.vector(CVperm)] == 0 & knn.pred == 1) / nClass0
+tpr.SMOTE
+#Obtenemos un 0.85 en la clase positiva en la clase positiva
+tnr.SMOTE <- sum(subclus$Class[as.vector(CVperm)] == 1 & knn.pred == 2) / nClass1 
+tnr.SMOTE
+#Obtenemos un 0.94 en la clase negativa
+gmean.SMOTE <- sqrt(tpr.SMOTE * tnr.SMOTE) 
+gmean.SMOTE
+#La media es de un 0.89
+
+knn.pred <- SMOTE(slot,TRUE)
 
