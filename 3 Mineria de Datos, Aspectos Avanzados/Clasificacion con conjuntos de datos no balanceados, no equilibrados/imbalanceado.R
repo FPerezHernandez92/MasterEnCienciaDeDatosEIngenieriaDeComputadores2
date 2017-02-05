@@ -2,7 +2,7 @@ setwd("~/Dropbox/zMaster/zRStudio/Master-en-Ciencia-De-Datos-e-Ingeniería-de-Co
 
 #Implementación y evaluación de técnicas de clasificación imbalanceada
 #Leemos el dataset subclus
-subclus <- read.table("subclus.txt", sep=",")
+subclus <- read.table("circle.txt", sep=",")
 colnames(subclus) <- c("Att1", "Att2", "Class")
 
 #Determinar el radio de imbalanceamiento
@@ -136,10 +136,8 @@ distance <- function(i, j, data){
   sum <- sqrt(sum)
   return(sum)
 }
-#TAREAS:
-#hacer getinstance. hacer syntheticInstance para crear instancias. comparar los resultados de este nuevo train en ros y rus. 
-#(opcional) hacer implementación de smote
 
+#Función GetNeighbors
 getNeighbors <- function(x, minority.instances, train){ 
   #1 Por cada x, recorro todas las instancias minoritarias y busco sus 5 elementos más cercanos
   #1.1 Creo la función que devuelva la distancia de x a cada elemento de la clase minoritaria
@@ -171,22 +169,18 @@ getNeighbors <- function(x, minority.instances, train){
 }
 
 #Prueba de funcionamiento de la distancia
-x1 = CVperm[1,1]
-t1 = as.matrix(CVperm[,1])
-x2 = CVperm[1,2]
-t2 = as.matrix(CVperm[,2])
-x3 = CVperm[1,3]
-t3 = as.matrix(CVperm[,3])
-x4 = CVperm[1,4]
-t4 = as.matrix(CVperm[,4])
-x5 = CVperm[1,5]
-t5 = as.matrix(CVperm[,5])
-cercanos1 <- getNeighbors(x1,minority.indices,t1)
-cercanos2 <- getNeighbors(x2,minority.indices,t2)
-cercanos3 <- getNeighbors(x3,minority.indices,t3)
-cercanos4 <- getNeighbors(x4,minority.indices,t4)
-cercanos5 <- getNeighbors(x5,minority.indices,t5)
+for (i in 1:5){
+  x = CVperm[1,i]
+  t = as.matrix(CVperm[,i])
+  cercanos <- getNeighbors(x,minority.indices,t)
+  print("Elemento")
+  print(x)
+  print("Cercanos")
+  print(cercanos)
+}
 
+
+#Función SyntheticInstance
 syntheticInstance <- function(elemento, cercanos){
   #Cojo un elemento de los cercanos aleatoriamente
   aleatorio.cercanos <- sample(1:5,1)
@@ -199,93 +193,74 @@ syntheticInstance <- function(elemento, cercanos){
   att2.y <- subclus[valor.aleatorio.cercanos,2]
   att2.z = att2.y - att2.x
   multiplicador = runif(1,0,1)
-  print("elemento,multiplciador,att1.x,att1.y,att1.z,att2.x,att2.y,att2.z,aleatoriodecercanos:")
-  print(elemento);print(multiplicador);print(att1.x);print(att1.y);print(att1.z);print(att2.x);print(att2.y);print(att2.z);print(cercanos[aleatorio.cercanos])
+  #print("elemento,multiplciador,att1.x,att1.y,att1.z,att2.x,att2.y,att2.z,aleatoriodecercanos:")
+  #print(elemento);print(multiplicador);print(att1.x);print(att1.y);print(att1.z);print(att2.x);print(att2.y);print(att2.z);print(cercanos[aleatorio.cercanos])
   att1.z = att1.x + (multiplicador*att1.z)
   att2.z = att2.x + (multiplicador*att2.z)
-  print("Final z: ");print(att1.z);print(att2.z)
+  #print("Final z: ");print(att1.z);print(att2.z)
   salida = NULL
   salida$Att1 = att1.z
   salida$Att2 = att2.z
   return(list(salida,aleatorio.cercanos))
   #return(salida)
 }
+#Prueba de syntheticInstance
 set.seed(1234)
-nueva.instancia <- syntheticInstance(x1,cercanos1)
+nueva.instancia <- syntheticInstance(x,cercanos)
 
 
 knn.pred = NULL
+#Función de SMOTE
 SMOTE <- function(slot,visualizacion=FALSE){
-  train <- subclus[-CVperm[,slot], -3]
-  indices.clase.minoritaria <- c(1:dim(CVperm)[1])[-CVperm[,slot]]
-  cop.classes.train <- subclus[-CVperm[,slot], 3]
+  #Preparo los conjuntos de train y test
+  train <- subclus[-CVperm[,slot],-3]
+  classes.train <- subclus[-CVperm[,slot], 3] 
   test  <- subclus[CVperm[,slot], -3]
-  minority.indices <- (1:dim(train)[1])[cop.classes.train == 0]
-  #to.add <- dim(train)[1] - 2 * length(minority.indices)
+  #Busco los índices de la clase minoritaria
+  indices <- CVperm_pos[,slot]
+  minority.indices <- (1:length(pos))[-indices]
+  #Creo el nuevo train
   copitrain <- train
-  classes.train <- cop.classes.train
   instancias.nuevas <- NULL
-  x1a <- minority.indices[1] 
-  print("Se van a imprimir: ")
-  print(length(minority.indices))
+  #Para cada índice de la clase minoritaria creare un nuevo elemento
   for (j in 1:length(minority.indices)){
-    j=0
-    
-    j=j+1
-    cercanos <- getNeighbors(indices.clase.minoritaria[j],indices.clase.minoritaria,train)
-    salida.synthetic <- syntheticInstance(indices.clase.minoritaria[j],cercanos)
+    #Busco los elementos cercanos
+    cercanos <- getNeighbors(minority.indices[j],pos,train)
+    #Creo la nueva instancia
+    salida.synthetic <- syntheticInstance(minority.indices[j],cercanos)
     instancia.nueva = salida.synthetic[[1]]
     aleatorio.cercanos = salida.synthetic[[2]]
+    #Añado la nueva instancia al nuevo train
     copitrain <- rbind(copitrain, instancia.nueva)
     instancias.nuevas <- rbind(instancias.nuevas,instancia.nueva)
+    #Añado la clase del nuevo elemento
     classes.train <- c(classes.train,0)
-    plot(train$Att1,train$Att2,title(slot))
-    points(train[classes.train==0,1],train[classes.train==0,2],col="grey")
-    points(train[classes.train==1,1],train[classes.train==1,2],col="white") 
-    puntos.de.referencia = subclus[indices.clase.minoritaria[j],-3]
-    puntos.de.referencia = rbind(puntos.de.referencia, subclus[cercanos[aleatorio.cercanos],-3])
-    points(puntos.de.referencia,col="red")
-    points(instancias.nuevas,col="green")
-    puntos.de.referencia
-    instancias.nuevas=NULL
-    #a=0
-    
-    #j=j-1
-    
   }
+  #Realizo knn para la predicción
   predictions <-  knn(copitrain, test, classes.train, k = 3)
   knn.pred <- c(knn.pred, predictions)
+  #Si está activa, realizaré la visualización de SMOTE siendo verde los nuevos elementos
   if (visualizacion == TRUE){
     plot(copitrain$Att1,copitrain$Att2,title(slot))
     points(copitrain[classes.train==0,1],copitrain[classes.train==0,2],col="red")
-    points(copitrain[classes.train==1,1],copitrain[classes.train==1,2],col="white") 
-    #for(int h in 1:5){
-     # if (h != slot)
-      #  points(
-       #   subclus[CVperm_pos[1,1],1],subclus[CVperm_pos[1,1],2]
-        #  ,col="orange"
-    #}
+    points(copitrain[classes.train==1,1],copitrain[classes.train==1,2],col="blue") 
     points(instancias.nuevas,col="green")
   }
   return(knn.pred)
 }
 set.seed(1234)
-slot=2
+#Aplico SMOTE y visualizo los resultados
 for (j in 1:5){
   knn.pred <- SMOTE(j,TRUE)
 }
-knn.pred <- SMOTE(slot,TRUE)
 
 #points(subclus[subclus$Class==0,1],subclus[subclus$Class==0,2],col="red")
 tpr.SMOTE <- sum(subclus$Class[as.vector(CVperm)] == 0 & knn.pred == 1) / nClass0
 tpr.SMOTE
-#Obtenemos un 0.85 en la clase positiva en la clase positiva
+#Obtenemos un 0.84 en la clase positiva en la clase positiva
 tnr.SMOTE <- sum(subclus$Class[as.vector(CVperm)] == 1 & knn.pred == 2) / nClass1 
 tnr.SMOTE
-#Obtenemos un 0.94 en la clase negativa
+#Obtenemos un 0.944 en la clase negativa
 gmean.SMOTE <- sqrt(tpr.SMOTE * tnr.SMOTE) 
 gmean.SMOTE
 #La media es de un 0.89
-
-knn.pred <- SMOTE(slot,TRUE)
-
