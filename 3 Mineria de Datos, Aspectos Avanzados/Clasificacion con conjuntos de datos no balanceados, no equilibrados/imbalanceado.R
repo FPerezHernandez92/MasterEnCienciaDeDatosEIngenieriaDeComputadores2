@@ -232,8 +232,13 @@ SMOTE <- function(slot,visualizacion=FALSE,visualizar.por.pasos=FALSE){
   #Creo el nuevo train
   copitrain <- train
   instancias.nuevas <- NULL
+  total.a.crear = dim(train)[1] - length(minority.indices)
   #Para cada índice de la clase minoritaria creare un nuevo elemento
-  for (j in 1:length(minority.indices)){
+  j=0
+  for (i in 1:total.a.crear){
+    j=j+1
+    if(j==(length(minority.indices)))
+      j=1
     #Busco los elementos cercanos
     cercanos <- getNeighbors(minority.indices[j],minority.indices,fichero)
     #Creo la nueva instancia
@@ -276,10 +281,10 @@ for (j in 1:5){
 
 tpr.SMOTE <- sum(fichero$Class[as.vector(CVperm)] == 0 & knn.pred == 1) / nClass0
 tpr.SMOTE
-#Obtenemos un 0.85 en la clase positiva en la clase positiva
+#Obtenemos un 0.87 en la clase positiva en la clase positiva
 tnr.SMOTE <- sum(fichero$Class[as.vector(CVperm)] == 1 & knn.pred == 2) / nClass1 
 tnr.SMOTE
-#Obtenemos un 0.952 en la clase negativa
+#Obtenemos un 0.93 en la clase negativa
 gmean.SMOTE <- sqrt(tpr.SMOTE * tnr.SMOTE) 
 gmean.SMOTE
 #La media es de un 0.899
@@ -384,13 +389,13 @@ for (j in 1:5){
 }
 tpr.SMOTE <- sum(fichero$Class[as.vector(CVperm)] == 0 & knn.pred == 1) / nClass0
 tpr.SMOTE
-#Obtenemos un 0.836 en la clase positiva en la clase positiva
+#Obtenemos un 0.945 en la clase positiva en la clase positiva
 tnr.SMOTE <- sum(fichero$Class[as.vector(CVperm)] == 1 & knn.pred == 2) / nClass1 
 tnr.SMOTE
 #Obtenemos un 0.998 en la clase negativa
 gmean.SMOTE <- sqrt(tpr.SMOTE * tnr.SMOTE) 
 gmean.SMOTE
-#La media es de un 0.913
+#La media es de un 0.971
 
 
 #############################################
@@ -578,3 +583,4 @@ tnr.SMOTEun
 gmean.SMOTEun <- sqrt(tpr.SMOTEun * tnr.SMOTEun) 
 gmean.SMOTEun
 #La media es de un 0.884
+
