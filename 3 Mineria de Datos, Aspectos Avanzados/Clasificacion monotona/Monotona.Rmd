@@ -34,26 +34,26 @@ datos$Out1 = as.factor(datos$Out1)
 Vamos a seleccionar los índices de las clases, una a una
 ```{r }
 indices.1.clase3 <- which(datos$Out1==clases[1])
-indices.2.clase3y2 <- c(indices.1, which(datos$Out1==clases[2]))
-indices.3.clases3y2y0 <- c(indices.2, which(datos$Out1==clases[3]))
-indices.4.clases3y2y0y4 <- c(indices.3, which(datos$Out1==clases[4]))
+indices.2.clase3y2 <- c(indices.1.clase3, which(datos$Out1==clases[2]))
+indices.3.clases3y2y0 <- c(indices.2.clase3y2, which(datos$Out1==clases[3]))
+indices.4.clases3y2y0y4 <- c(indices.3.clases3y2y0, which(datos$Out1==clases[4]))
 ```
-Vamos a selecionar a 0 solo la clase primera, y el resto a 1
+Vamos a seleccionar a 0 solo la clase primera, y el resto a 1
 ```{r }
 p1 <- as.integer(datos$Out1)
-p1[indices.1]<-0
+p1[indices.1.clase3]<-0
 p1 = ifelse(p1==0,0,1)
 p2 <- as.integer(datos$Out1)
-p2[indices.2]<-0
+p2[indices.2.clase3y2]<-0
 p2 = ifelse(p2==0,0,1)
 p3 <- as.integer(datos$Out1)
-p3[indices.3]<-0
+p3[indices.3.clases3y2y0]<-0
 p3 = ifelse(p3==0,0,1)
 p4 <- as.integer(datos$Out1)
-p4[indices.4]<-0
+p4[indices.4.clases3y2y0y4]<-0
 p4 = ifelse(p4==0,0,1)
 ```
-Con lo que ya tenemos casi listo el primer data frame derivado, nos queda por juntar el resto del dataset con la neuva clase binaria. 
+Con lo que ya tenemos casi listo el primer data frame derivado, nos queda por juntar el resto del dataset con la nueva clase binaria. 
 ```{r }
 data1 = cbind(datos[,1:4],target1=as.factor(p1))
 data2 = cbind(datos[,1:4],target2=as.factor(p2))
@@ -89,11 +89,198 @@ Necesitamos conocer las probabilidades generadas por nuestros modelos, para ello
 ```{r }
 datos[500,3]
 prediccion1 <- predict(modelo1,datos[500,1:4],type="probability")
-prediccion1
 prediccion2 <- predict(modelo2,datos[500,1:4],type="probability")
-prediccion2
 prediccion3 <- predict(modelo3,datos[500,1:4],type="probability")
-prediccion3
 prediccion4 <- predict(modelo4,datos[500,1:4],type="probability")
+```
+Es decir, pertenece a la clase 2, por lo que en la primera predicción nos debería salir que es 1, y en el resto nos debería dar mayor probabilidad a la 0, ya que a partir de la predicción 2, la clase 2, estaba incluida en las particiones
+```{r }
+prediccion1
+prediccion2
+prediccion3
 prediccion4
+```
+Como se puede observar, ocurre como se comentaba, pero el comportamiento de la predicción 3 no es del todo bueno, al bajar la probabilidad. 
+
+# Automatización del proceso
+A continuación, vamos a realizar una serie de funciones para que este proceso se haga de forma automática con cualquier dataset.
+La primera será una función que realice la lectura del dataset y transforme la clase en factor y devuelva el número de clases que tiene el dataset.
+```{r }
+LecturaYPreprocesado = function(fichero){
+  datos <- read.arff(fichero)
+  datos[dim(datos)[2]]
+  clases = as.integer(unique(datos[[dim(datos)[2]]]))
+  datos[[dim(datos)[2]]] = as.factor(datos[[dim(datos)[2]]])
+  return(list(datos,clases))
+}
+salida.funcion.lectura <- LecturaYPreprocesado("lev.arff")
+datos <- salida.funcion.lectura[[1]]
+clases <- salida.funcion.lectura[[2]]
+clases
+```
+Ya tenemos la función que realiza el proceso de leer y preprocesar el conjunto de datos. Ahora vamos a seleccionar los índices de las clases, una a una, de forma automática con otra función
+```{r }
+ObtenerIndices = function(fichero.datos,clases.totales){
+  lista <- NULL
+  for (i in 1:(length(clases.totales)-1)){
+    if (i==1){
+      indices <- which(fichero.datos[[dim(fichero.datos)[2]]]==clases.totales[i])
+      lista <- list(indices)
+    } else {
+      indices <- c(lista[[length(lista)]], which(fichero.datos[[dim(fichero.datos)[2]]]==clases.totales[i]))
+      lista <- c(lista, list(indices))
+    }
+  }
+  return(lista)
+}
+lista.con.los.indices <- ObtenerIndices(datos,clases)
+```
+Una vez que tenemos todos los índices, vamos a seleccionar con 0 las clases primarias y el resto a 1, con otra función:
+```{r }
+SeleccionDeClases = function(fichero.datos, clases.totales,lista){
+  lista.salida <- NULL
+  for (i in 1:(length(clases.totales)-1)){
+    p <- as.integer(datos[[dim(datos)[2]]])
+    p[lista[[i]]]<-0
+    p <- ifelse(p==0,0,1)
+    if (i==1){
+      lista.salida <- list(p)
+    } else {
+      lista.salida <- c(lista.salida, list(p))
+    }
+  }
+  return(lista.salida)
+}
+lista.con.la.seleccion.de.clases <- SeleccionDeClases(datos,clases,lista.con.los.indices)
+```
+Ahora juntaremos los dataset con las clases binarias, con otra función:
+```{r }
+CreacionDataFramesBinarios = function(fichero.datos, clases.totales,lista.clases){
+  lista.salida <- NULL
+  for (i in 1:(length(clases.totales)-1)){
+    data <- cbind(fichero.datos[,1:(dim(fichero.datos)[2]-1)],target=as.factor(lista.clases[[i]]))
+    if (i==1){
+      lista.salida <- list(data)
+    } else {
+      lista.salida <- c(lista.salida, list(data))
+    }
+  }
+  return(lista.salida)
+}
+lista.data.frames.binarios <- CreacionDataFramesBinarios(datos,clases,lista.con.la.seleccion.de.clases)
+```
+El siguiente paso será crear los modelos usando el clasificador que queramos, primero probaremos con J48:
+```{r }
+library(RWeka)
+CreacionDeLosModelos = function(lista.data.frames,clases.totales){
+  lista.salida <- NULL
+  for (i in 1:(length(clases.totales)-1)){
+    modelo <- J48(target ~., data = lista.data.frames[[i]])
+    if (i==1){
+      lista.salida <- list(modelo)
+    } else {
+      lista.salida <- c(lista.salida, list(modelo))
+    }
+  }
+  return(lista.salida)
+}
+lista.modelos <- CreacionDeLosModelos(lista.data.frames.binarios, clases)
+```
+Vamos a realizar la evaluación de los modelos:
+```{r }
+CrearEvaluacionDeModelos = function(lista.modelo, clases.totales){
+  lista.salida <- NULL
+  for (i in 1:(length(clases.totales)-1)){
+    evaluacion <- evaluate_Weka_classifier(lista.modelo[[i]], numFolds = 10, complexity = FALSE, class = TRUE)
+    if (i==1){
+      lista.salida <- list(evaluacion)
+    } else {
+      lista.salida <- c(lista.salida, list(evaluacion))
+    }
+  }
+  return(lista.salida)
+}
+lista.evaluaciones <- CrearEvaluacionDeModelos(lista.modelos,clases)
+```
+Podemos ver la lista de las evaluaciones:
+```{r }
+for(i in 1:(length(lista.evaluaciones))){
+  print(lista.evaluaciones[[i]])
+}
+```
+
+Una vez que tenemos todo el proceso automatizado, pasaremos a realizar las prediciones:
+```{r }
+RealizarPrediccion = function(lista.modelo, fichero.datos, elemento){
+  lista.salida <- list(fichero.datos[elemento,(dim(fichero.datos)[2])])
+  for (i in 1:(length(lista.modelo))){
+    prediccion <- predict(lista.modelo[[i]],fichero.datos[elemento,1:(dim(fichero.datos)[2]-1)],type="probability")
+    lista.salida <- c(lista.salida, list(prediccion))
+  }
+  return(lista.salida)
+}
+elemento.elegido = 500
+lista.predicciones <- RealizarPrediccion(lista.modelos, datos, elemento.elegido)
+lista.predicciones
+```
+Y por último una función que explique la predicción:
+```{r }
+ExplicarPrediccion = function(lista.prediccion, elemento, clases.totales){
+  print("Tenemos que el elemento")
+  print(elemento)
+  print("Pertenece a la clase")
+  print(lista.prediccion[[1]])
+  clase.a.la.que.pertenece <- lista.prediccion[[1]]
+  pertenece.al.0 <- FALSE
+  predicciones.buenas = 0
+  predicciones.malas = 0
+  for (i in 2:(length(lista.prediccion))){
+    print("Siendo la prediccion")
+    print(lista.prediccion[[i]])
+    print("Y las clases que pertenecen al 0: ")
+    for (j in 1:(i-1)){
+      print(clases.totales[j])
+      if (clase.a.la.que.pertenece == clases.totales[j])
+        pertenece.al.0 = TRUE
+    }
+    if (pertenece.al.0 & (lista.prediccion[[i]][1] > 0.5)){
+      print("Por lo que pertenece a 0 y se hace una buena predicción al ser superior al 0.5")
+      predicciones.buenas = predicciones.buenas + 1
+    } else if (pertenece.al.0){
+      print("No se realiza una buena predicción al pertenecer a 0 y no ser la predicción superior al 0.5")
+      predicciones.malas = predicciones.malas + 1
+    } else if (lista.prediccion[[i]][2] > 0.5){
+      print("Se hace una buena predicción al pertenecer a 1 y ser superior a 0.5")
+      predicciones.buenas = predicciones.buenas + 1
+    } else {
+      print("No se hace una buena predicción al pertenecer a 1 y no ser superior a 0.5")
+      predicciones.malas = predicciones.malas + 1
+    }
+  }
+  print("En total tenemos ")
+  print(predicciones.buenas)
+  print("predicciones buenas y ")
+  print(predicciones.malas)
+  print("predicciones malas.")
+}
+ExplicarPrediccion(lista.predicciones, elemento.elegido, clases)
+```
+
+# Prueba con otro dataset
+Vamos a probar todas las funciones anteriores con el dataset ESL:
+```{r }
+salida.funcion.lectura <- LecturaYPreprocesado("esl.arff")
+datos <- salida.funcion.lectura[[1]]
+clases <- salida.funcion.lectura[[2]]
+clases
+lista.con.los.indices <- ObtenerIndices(datos,clases)
+lista.con.la.seleccion.de.clases <- SeleccionDeClases(datos,clases,lista.con.los.indices)
+lista.data.frames.binarios <- CreacionDataFramesBinarios(datos,clases,lista.con.la.seleccion.de.clases)
+library(party)
+lista.modelos <- CreacionDeLosModelos(lista.data.frames.binarios, clases)
+lista.evaluaciones <- CrearEvaluacionDeModelos(lista.modelos,clases)
+elemento.elegido = 300
+lista.predicciones <- RealizarPrediccion(lista.modelos, datos, elemento.elegido)
+lista.predicciones
+ExplicarPrediccion(lista.predicciones, elemento.elegido, clases)
 ```
