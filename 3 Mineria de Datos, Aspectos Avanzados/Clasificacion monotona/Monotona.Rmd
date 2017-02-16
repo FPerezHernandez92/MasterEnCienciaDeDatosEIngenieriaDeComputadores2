@@ -1,0 +1,99 @@
+---
+title: "Clasificación Monótona"
+author: "Francisco Pérez"
+date: "15/2/2017"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+setwd("~/Dropbox/zMaster/zRStudio/Master-en-Ciencia-De-Datos-e-Ingeniería-de-Computadores-2/3 Mineria de Datos, Aspectos Avanzados/Clasificacion monotona")
+
+```
+
+# Lectura del Data set lev
+Leemos el data set lev
+```{r lectura}
+library("foreign")
+datos <- read.arff("lev.arff")
+summary(datos)
+```
+Veamos cuantas clases tiene este dataset
+```{r }
+clases = as.integer(unique(datos$Out1))
+clases
+length(clases)
+```
+Teniendo un total de 5 clases
+Pasemos la clase a tipo factor:
+```{r }
+datos$Out1 = as.factor(datos$Out1)
+```
+
+# Trabajo con el Data set
+Vamos a seleccionar los índices de las clases, una a una
+```{r }
+indices.1.clase3 <- which(datos$Out1==clases[1])
+indices.2.clase3y2 <- c(indices.1, which(datos$Out1==clases[2]))
+indices.3.clases3y2y0 <- c(indices.2, which(datos$Out1==clases[3]))
+indices.4.clases3y2y0y4 <- c(indices.3, which(datos$Out1==clases[4]))
+```
+Vamos a selecionar a 0 solo la clase primera, y el resto a 1
+```{r }
+p1 <- as.integer(datos$Out1)
+p1[indices.1]<-0
+p1 = ifelse(p1==0,0,1)
+p2 <- as.integer(datos$Out1)
+p2[indices.2]<-0
+p2 = ifelse(p2==0,0,1)
+p3 <- as.integer(datos$Out1)
+p3[indices.3]<-0
+p3 = ifelse(p3==0,0,1)
+p4 <- as.integer(datos$Out1)
+p4[indices.4]<-0
+p4 = ifelse(p4==0,0,1)
+```
+Con lo que ya tenemos casi listo el primer data frame derivado, nos queda por juntar el resto del dataset con la neuva clase binaria. 
+```{r }
+data1 = cbind(datos[,1:4],target1=as.factor(p1))
+data2 = cbind(datos[,1:4],target2=as.factor(p2))
+data3 = cbind(datos[,1:4],target3=as.factor(p3))
+data4 = cbind(datos[,1:4],target4=as.factor(p4))
+```
+
+# Creación del modelo de clasificación
+Vamos a usar el C4.5, implementado en el paquete de RWeka como J48.
+```{r }
+library(RWeka)
+modelo1 <- J48(target1 ~., data = data1)
+modelo1
+modelo2 <- J48(target2 ~., data = data2)
+modelo2
+modelo3 <- J48(target3 ~., data = data3)
+modelo3
+modelo4 <- J48(target4 ~., data = data4)
+modelo4
+```
+Hagamos un estudio más detallado de los modelos con la función "evaluate_Weka_classifier":
+```{r }
+evaluacion.modelo.1 <- evaluate_Weka_classifier(modelo1, numFolds = 10, complexity = FALSE, class = TRUE)
+evaluacion.modelo.1
+evaluacion.modelo.2 <- evaluate_Weka_classifier(modelo1, numFolds = 10, complexity = FALSE, class = TRUE)
+evaluacion.modelo.2
+evaluacion.modelo.3 <- evaluate_Weka_classifier(modelo1, numFolds = 10, complexity = FALSE, class = TRUE)
+evaluacion.modelo.3
+evaluacion.modelo.4 <- evaluate_Weka_classifier(modelo1, numFolds = 10, complexity = FALSE, class = TRUE)
+evaluacion.modelo.4
+```
+Necesitamos conocer las probabilidades generadas por nuestros modelos, para ello probaremos a predecir la instancia 500 de nuestro dataset, sabiendo de por si que pertenece a la clase:
+```{r }
+datos[500,3]
+prediccion1 <- predict(modelo1,datos[500,1:4],type="probability")
+prediccion1
+prediccion2 <- predict(modelo2,datos[500,1:4],type="probability")
+prediccion2
+prediccion3 <- predict(modelo3,datos[500,1:4],type="probability")
+prediccion3
+prediccion4 <- predict(modelo4,datos[500,1:4],type="probability")
+prediccion4
+```

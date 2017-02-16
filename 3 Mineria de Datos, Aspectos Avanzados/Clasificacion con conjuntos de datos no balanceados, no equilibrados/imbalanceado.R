@@ -1,4 +1,4 @@
-setwd("~/Dropbox/zMaster/zRStudio/Master-en-Ciencia-De-Datos-e-Ingeniería-de-Computadores-2/3 Mineria de Datos, Aspectos Avanzados/Clasificacion con conjuntos de datos no balanceados, no equilibrados")
+#setwd("~/Dropbox/zMaster/zRStudio/Master-en-Ciencia-De-Datos-e-Ingeniería-de-Computadores-2/3 Mineria de Datos, Aspectos Avanzados/Clasificacion con conjuntos de datos no balanceados, no equilibrados")
 
 #Implementación y evaluación de técnicas de clasificación imbalanceada
 #Leemos el dataset fichero
@@ -584,3 +584,204 @@ gmean.SMOTEun <- sqrt(tpr.SMOTEun * tnr.SMOTEun)
 gmean.SMOTEun
 #La media es de un 0.884
 
+
+
+
+
+#Implementación Borderline-SMOTE1
+fichero <- read.table("subclus.txt", sep=",")
+colnames(fichero) <- c("Att1", "Att2", "Class")
+#Determinar el radio de imbalanceamiento
+nClass0 <- sum(fichero$Class == 0)
+nClass1 <- sum(fichero$Class == 1)
+IR <- nClass1 / nClass0
+IR #Por cada ejemplo positivo hay 5 negativos
+
+#Dividimos el dataset en 5 partes para la validación cruzada
+set.seed(1234)
+pos <- (1:dim(fichero)[1])[fichero$Class==0]
+neg <- (1:dim(fichero)[1])[fichero$Class==1]
+#Hacemos las divisiones en los 5 conjuntos de cada clase
+CVperm_pos <- matrix(sample(pos,length(pos)), ncol=5, byrow=T)
+CVperm_neg <- matrix(sample(neg,length(neg)), ncol=5, byrow=T)
+#Unimos las dos clases
+CVperm <- rbind(CVperm_pos, CVperm_neg)
+
+distance <- function(i, j, data){
+  sum <- 0
+  for(f in 1:dim(data)[2]){
+    if(is.factor(data[,f])){ # nominal feature
+      if(data[i,f] != data[j,f]){
+        sum <- sum + 1
+      }
+    } else {
+      sum <- sum + (data[i,f] - data[j,f]) * (data[i,f] - data[j,f])
+    }
+  }
+  sum <- sqrt(sum)
+  return(sum)
+}
+#Función GetNeighbors
+getNeighbors <- function(x, todos.los.indices, train){ 
+  #1 Por cada x, recorro todas las instancias y busco sus 5 elementos más cercanos
+  #1.1 Creo la función que devuelva la distancia de x a cada elemento de la clase minoritaria
+  cercano = function(y){
+    distance(x,y,fichero)
+  }
+  #1.2 Aplico para encontrar la distancia
+  #points(fichero[x,],col="black")
+  distancias <- sapply(todos.los.indices,cercano )
+  #1.3 Busco los 5 elementos con menor distancia salvo el mismo
+  matriz.elemento.distancia <- cbind(todos.los.indices,distancias)
+  menores = function(matriz){
+    #Ordeno las distancias
+    a = matriz[,2]
+    a <- a[order(a)]
+    #Si la primera distancia es 0, es que es el mismo y lo elimino
+    if (a[1]==0){
+      a <- c(a[2:length(a)])
+    }
+    #Me quedo con las 5 más pequeñas
+    a <- c(a[1:5])
+    return(a)
+  }
+  los.menores <- menores(matriz.elemento.distancia)
+  #matriz.elemento.distancia[los.5.cercanos,1]
+  los.5.cercanos <- matriz.elemento.distancia[,2] %in% los.menores
+  valores.los.5.cercanos <- todos.los.indices[los.5.cercanos]
+  #points(fichero[valores.los.5.cercanos,],col="blue")
+  return(valores.los.5.cercanos)
+}
+#Función SyntheticInstance
+syntheticInstance2 <- function(elemento, cercano){
+  #Cojo un elemento de los cercanos aleatoriamente
+  aleatorio.cercanos <- 1
+  valor.aleatorio.cercanos <- cercano
+  #Saco los valores att1 y att2 de mi elemento y del aleatorio cercano
+  att1.x <- fichero[elemento,1]
+  att1.y <- fichero[valor.aleatorio.cercanos,1]
+  att1.z = att1.y - att1.x
+  att2.x <- fichero[elemento,2]
+  att2.y <- fichero[valor.aleatorio.cercanos,2]
+  att2.z = att2.y - att2.x
+  multiplicador = runif(1,0,1)
+  #print("elemento,multiplciador,att1.x,att1.y,att1.z,att2.x,att2.y,att2.z,aleatoriodecercanos:")
+  #print(elemento);print(multiplicador);print(att1.x);print(att1.y);print(att1.z);print(att2.x);print(att2.y);print(att2.z);print(cercanos[aleatorio.cercanos])
+  att1.z = att1.x + (multiplicador*att1.z)
+  att2.z = att2.x + (multiplicador*att2.z)
+  #print("Final z: ");print(att1.z);print(att2.z)
+  salida = NULL
+  salida$Att1 = att1.z
+  salida$Att2 = att2.z
+  return(list(salida,aleatorio.cercanos))
+  #return(salida)
+}
+BorderlineSMOTE = function(slot,visualizacion=FALSE){
+  #Preparo los conjuntos de train y test
+  train <- fichero[-CVperm[,slot],-3]
+  classes.train <- fichero[-CVperm[,slot], 3] 
+  test  <- fichero[CVperm[,slot], -3]
+  #Busco los índices de la clase minoritaria
+  indices <- CVperm_pos[,slot]
+  indices.neg <- CVperm_neg[,slot]
+  minority.indices <- (1:length(pos))[-indices]
+  union.indices <- c(indices,indices.neg)
+  todos.los.indices <- (1:(dim(fichero)[1]))[-union.indices]
+  mayority.indices <- todos.los.indices[!(todos.los.indices %in% minority.indices)]
+  #Creo el nuevo train
+  copitrain <- train
+  instancias.nuevas <- NULL
+  total.a.crear = dim(train)[1] - length(minority.indices)
+  #Para cada índice de la clase minoritaria creare un nuevo elemento
+  j=0
+  i=0
+  while(i!=total.a.crear){
+    j=j+1
+    if(j==(length(minority.indices)))
+      j=1
+    #Busco los elementos cercanos
+    cercanos <- getNeighbors(minority.indices[j],todos.los.indices,fichero)
+    if ((sum(mayority.indices %in% cercanos)) > (length(cercanos)/2) ){ #Se considera DANGER
+      cercanos.danger <- getNeighbors(minority.indices[j],minority.indices,fichero)
+      aleatorio.danger <- sample(1:5,1)
+      if ((i+aleatorio.danger) > total.a.crear)
+        aleatorio.danger = total.a.crear - i
+      i = i + aleatorio.danger
+      for (h in 1:aleatorio.danger){
+        salida.ynthetic <- syntheticInstance2(minority.indices[j],cercanos.danger[h])
+        instancia.nueva = salida.ynthetic[[1]]
+        #Añado la nueva instancia al nuevo train
+        copitrain <- rbind(copitrain, instancia.nueva)
+        instancias.nuevas <- rbind(instancias.nuevas,instancia.nueva)
+        #Añado la clase del nuevo elemento
+        classes.train <- c(classes.train,0)
+      }
+    }
+  }
+  #Realizo knn para la predicción
+  predictions <-  knn(copitrain, test, classes.train, k = 3)
+  knn.pred <- c(knn.pred, predictions)
+  if (visualizacion == TRUE){
+    plot(copitrain$Att1,copitrain$Att2,title(slot))
+    points(copitrain[classes.train==0,1],copitrain[classes.train==0,2],col="red")
+    points(copitrain[classes.train==1,1],copitrain[classes.train==1,2],col="blue") 
+    points(instancias.nuevas,col="green")
+  }
+  return(knn.pred)
+}
+
+
+#Borderline-SMOTE1
+set.seed(1234)
+knn.pred = NULL
+#Aplico Borderline-SMOTE1 y visualizo los resultados
+for (j in 1:5){
+  knn.pred <- BorderlineSMOTE(j,TRUE)
+}
+tpr.BorSMOTE <- sum(fichero$Class[as.vector(CVperm)] == 0 & knn.pred == 1) / nClass0
+tpr.BorSMOTE
+#Obtenemos un 0.86 en la clase positiva en la clase positiva
+tnr.BorSMOTE <- sum(fichero$Class[as.vector(CVperm)] == 1 & knn.pred == 2) / nClass1 
+tnr.BorSMOTE
+#Obtenemos un 0.934 en la clase negativa
+gmean.BorSMOTE <- sqrt(tpr.BorSMOTE * tnr.BorSMOTE) 
+gmean.BorSMOTE
+#La media es de un 0.896
+
+
+
+#Circle
+fichero <- read.table("circle.txt", sep=",")
+colnames(fichero) <- c("Att1", "Att2", "Class")
+#Determinar el radio de imbalanceamiento
+nClass0 <- sum(fichero$Class == 0)
+nClass1 <- sum(fichero$Class == 1)
+IR <- nClass1 / nClass0
+IR #Por cada ejemplo positivo hay 5 negativos
+
+#Dividimos el dataset en 5 partes para la validación cruzada
+set.seed(1234)
+pos <- (1:dim(fichero)[1])[fichero$Class==0]
+neg <- (1:dim(fichero)[1])[fichero$Class==1]
+#Hacemos las divisiones en los 5 conjuntos de cada clase
+CVperm_pos <- matrix(sample(pos,length(pos)), ncol=5, byrow=T)
+CVperm_neg <- matrix(sample(neg,length(neg)), ncol=5, byrow=T)
+#Unimos las dos clases
+CVperm <- rbind(CVperm_pos, CVperm_neg)
+
+#Borderline-SMOTE1
+set.seed(1234)
+knn.pred = NULL
+#Aplico Borderline-SMOTE1 y visualizo los resultados
+for (j in 1:5){
+  knn.pred <- BorderlineSMOTE(j,TRUE)
+}
+tpr.BorSMOTE <- sum(fichero$Class[as.vector(CVperm)] == 0 & knn.pred == 1) / nClass0
+tpr.BorSMOTE
+#Obtenemos un 0.927 en la clase positiva en la clase positiva
+tnr.BorSMOTE <- sum(fichero$Class[as.vector(CVperm)] == 1 & knn.pred == 2) / nClass1 
+tnr.BorSMOTE
+#Obtenemos un 0.997 en la clase negativa
+gmean.BorSMOTE <- sqrt(tpr.BorSMOTE * tnr.BorSMOTE) 
+gmean.BorSMOTE
+#La media es de un 0.961
