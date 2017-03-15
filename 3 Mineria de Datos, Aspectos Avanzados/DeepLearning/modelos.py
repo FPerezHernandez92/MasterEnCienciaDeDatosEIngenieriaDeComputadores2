@@ -32,5 +32,7 @@ rf_full.fit(Xfull,yfull)
 rf_result = rf_full.predict(dtest)
 #Guardamos esta predicción en un fichero de salida
 pd.DataFrame({'ImageId': range(1, len(rf_result)+1), 'Label':rf_result}).to_csv('result/1rf.csv',index = None)
+#El resultado ha sido de 0.96529 
+
 
 
