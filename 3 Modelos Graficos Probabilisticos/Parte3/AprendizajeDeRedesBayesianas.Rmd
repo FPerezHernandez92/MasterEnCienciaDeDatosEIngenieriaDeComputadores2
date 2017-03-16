@@ -1,0 +1,215 @@
+---
+title: "AprendizajeDeRedesBayesianas"
+author: "FranciscoPérezHernández"
+date: "15/3/2017"
+output: pdf_document
+---
+
+```{r setup, include=FALSE, cache=TRUE}
+knitr::opts_chunk$set(echo = TRUE)
+library(bnlearn)
+```
+
+# Parte 1
+Vamos a aprender una red bayesiana a partir del dataset:
+```{r}
+urgencias <- read.table("urgencias11v-class-ms-R.txt", sep = ",", header=TRUE)
+```
+
+El algoritmo estará basado en evaluación y búsqueda, empleando el método hc, que implementa un método de búsqueda "Hill climbing" en el espacio de los dags.
+```{r}
+set.seed(1234)
+bn.hc.aic <- hc(urgencias, score = "aic")
+bn.hc.aic
+bn.hc.bic <- hc(urgencias, score = "bic")
+bn.hc.bic
+bn.hc.k2 <- hc(urgencias, score = "k2")
+bn.hc.k2
+bn.hc.bde.1 <- hc(urgencias, score="bde", iss = 1)
+bn.hc.bde.1
+bn.hc.bde.5 <- hc(urgencias, score="bde", iss = 5)
+bn.hc.bde.5
+bn.hc.bde.10 <- hc(urgencias, score="bde", iss = 10)
+bn.hc.bde.10
+```
+
+# Parte 2
+Vamos a aprender una red bayesiana empleando algún algoritmo basado en test de independencia:
+```{r}
+set.seed(1234)
+bn.iamb <- iamb(urgencias)
+bn.iamb
+bn.iamb.mi <- iamb(urgencias, test='mi')
+bn.iamb.mi
+bn.iamb.x2 <- iamb(urgencias, test='x2')
+bn.iamb.x2
+```
+
+# Parte 3
+Vamos a comparar los resultados obtenidos por los diferentes algoritmos.
+
+## Basados en el método Hill Climbing
+Vamos a empezar comparando los basados en el método Hill Climbing entre ellos. 
+
+### aic vs bic
+La primera comparación será entre los distintos score, primero entre aic y bic:
+```{r}
+bn.hc.aic
+bn.hc.bic
+```
+Vemos como el basado en aic tiene 18 arcos frente a los 14 del basado en bic, viendo también las diferencias entre las medias. El coeficiente de penalización es bastante más alto en bic que en aic, y los tests usados en el procedimiento de aprendizaje son más en aic. Ahora vamos a ver si tienen la misma estructura de red.
+```{r}
+bnlearn::compare(bn.hc.aic, bn.hc.bic)
+```
+Podemos ver como los verdades positivos (el número de arcos presentes en ambos) son 7, frente a los falsos positivos (el número de arcos no presentes en ambos) que son 7 también, siendo los falsos negativos (el número de arcos no presentes al inicio pero si al final) son 11. Por lo tanto veamos los modelos:
+```{r}
+par(mfrow = c(1,2))
+graphviz.plot(bn.hc.aic, main="Hill Climbing aic")
+graphviz.plot(bn.hc.bic, main="Hill Climbing bic")
+```
+Donde podemos ver que las redes son bastante distintas a simple vista. Por ejemplo "centro" en el método aic, tiene por debajo a "tipo_docu", "ser_real" y "motivo_ingr", mientras que en el método bic, tiene por debajo a "ser_real", "turno", "tipo_docu" y "p10". Es decir, hay bastantes diferencias. Además, "centro" en el método aic no tiene nada por encima, mientras que en bic viene de "motivo_ingr" y "tipo_patologia".
+
+### aic vs k2
+Vamos a comparar aic y k2:
+```{r}
+bn.hc.aic
+bn.hc.k2
+```
+Vemos como el basado en aic tiene 18 arcos frente a los 26 del basado en k2, viendo también las diferencias entre las medias. Los tests usados en el procedimiento de aprendizaje son más en k2 Ahora vamos a ver si tienen la misma estructura de red.
+```{r}
+bnlearn::compare(bn.hc.aic, bn.hc.k2)
+```
+Podemos ver como los verdades positivos (el número de arcos presentes en ambos) son 12, frente a los falsos positivos (el número de arcos no presentes en ambos) que son 14 también, siendo los falsos negativos (el número de arcos no presentes al inicio pero si al final) son 6. Por lo tanto veamos los modelos:
+```{r}
+par(mfrow = c(1,2))
+graphviz.plot(bn.hc.aic, main="Hill Climbing aic")
+graphviz.plot(bn.hc.k2, main="Hill Climbing k2")
+```
+Donde podemos ver que las redes son bastante distintas a simple vista.
+
+### bic vs k2
+Vamos a comparar bic y k2:
+```{r}
+bn.hc.bic
+bn.hc.k2
+```
+Vemos como el basado en bic tiene 14 arcos frente a los 26 del basado en k2, viendo también las diferencias entre las medias. Los tests usados en el procedimiento de aprendizaje son más en k2 Ahora vamos a ver si tienen la misma estructura de red.
+```{r}
+bnlearn::compare(bn.hc.bic, bn.hc.k2)
+```
+Podemos ver como los verdades positivos (el número de arcos presentes en ambos) son 8, frente a los falsos positivos (el número de arcos no presentes en ambos) que son 18 también, siendo los falsos negativos (el número de arcos no presentes al inicio pero si al final) son 6. Por lo tanto veamos los modelos:
+```{r}
+par(mfrow = c(1,2))
+graphviz.plot(bn.hc.bic, main="Hill Climbing bic")
+graphviz.plot(bn.hc.k2, main="Hill Climbing k2")
+```
+Donde podemos ver que las redes son bastante distintas a simple vista.
+
+### Distintos bde
+Vamos a comparar los 3 diferentes modelos con bde que he realizado:
+```{r}
+bn.hc.bde.1
+bn.hc.bde.5
+bn.hc.bde.10
+```
+Vemos como el número de arcos para 1 es de 16 mientras que para 5 y 10 son 17. Además ocurre lo mismo con el número de test usados en el procedimiento de aprendizaje. Ahora vamos a ver si tienen la misma estructura de red.
+```{r}
+bnlearn::compare(bn.hc.bde.1, bn.hc.bde.5)
+```
+
+```{r}
+bnlearn::compare(bn.hc.bde.1, bn.hc.bde.10)
+```
+```{r}
+bnlearn::compare(bn.hc.bde.5, bn.hc.bde.10)
+```
+Donde podemos ver que siempre hay alguna diferencia. Vamos a ver los modelos:
+```{r}
+par(mfrow = c(1,2))
+graphviz.plot(bn.hc.bde.1, main="Hill Climbing bde 1")
+graphviz.plot(bn.hc.bde.5, main="Hill Climbing bde 5")
+```
+Donde podemos ver que salvo en "tipo_docu" en la que hay algunos arcos diferentes, el resto es muy parecido.
+```{r}
+par(mfrow = c(1,2))
+graphviz.plot(bn.hc.bde.1, main="Hill Climbing bde 1")
+graphviz.plot(bn.hc.bde.10, main="Hill Climbing bde 10")
+```
+Vemos como son bastante parecidas pero siguen sin ser tan parecidas como 1 y 5. 
+
+### aic vs bde
+Vamos a comparar aic y bde:
+```{r}
+bn.hc.aic
+bn.hc.bde.1
+```
+Vemos como el basado en aic tiene 18 arcos frente a los 16 del basado en bde.1, viendo también las diferencias entre las medias. Los tests usados en el procedimiento de aprendizaje son más en aic Ahora vamos a ver si tienen la misma estructura de red.
+```{r}
+bnlearn::compare(bn.hc.aic, bn.hc.bde.1)
+```
+Podemos ver como los verdades positivos (el número de arcos presentes en ambos) son 13, frente a los falsos positivos (el número de arcos no presentes en ambos) que son 3 también, siendo los falsos negativos (el número de arcos no presentes al inicio pero si al final) son 5. Por lo tanto veamos los modelos:
+```{r}
+par(mfrow = c(1,2))
+graphviz.plot(bn.hc.aic, main="Hill Climbing aic")
+graphviz.plot(bn.hc.bde.1, main="Hill Climbing bde 1")
+```
+Donde podemos ver las diferencias entre ambos. 
+
+## Basados en test de independencia
+### mi vs x2
+Vamos a comparar estos dos test:
+```{r}
+bn.iamb.mi
+bn.iamb.x2
+```
+Vemos como el basado en mi tiene 9 arcos frente a los 11 del basado en x2, donde hay arcos directos e indirectos coincidiendo en el número de directos. Los tests usados en el procedimiento de aprendizaje son más en x2. Ahora vamos a ver si tienen la misma estructura de red.
+```{r}
+bnlearn::compare(bn.iamb.mi, bn.iamb.x2)
+```
+Podemos ver como los verdades positivos (el número de arcos presentes en ambos) son 6, frente a los falsos positivos (el número de arcos no presentes en ambos) que son 5 también, siendo los falsos negativos (el número de arcos no presentes al inicio pero si al final) son 3. Por lo tanto veamos los modelos:
+```{r}
+par(mfrow = c(1,2))
+graphviz.plot(bn.iamb.mi, main="IAMB mi")
+graphviz.plot(bn.iamb.x2, main="IAMB x2")
+```
+Donde podemos ver las diferencias entre ambos y algunas semejanzas. 
+
+### mi
+Vamos a comparar estos dos test:
+```{r}
+bn.iamb.mi
+bn.iamb
+```
+Donde vemos que dan los mismos resultados si usamos test=NULL o test='mi'
+```{r}
+bnlearn::compare(bn.iamb, bn.iamb.mi)
+```
+Veamos los modelos:
+```{r}
+par(mfrow = c(1,2))
+graphviz.plot(bn.iamb, main="IAMB")
+graphviz.plot(bn.iamb.mi, main="IAMB mi")
+```
+Donde vemos que son iguales.
+
+## Hill Climbing vs Basados en test de independencia
+### aic vs x2
+Vamos a comparar estos dos test:
+```{r}
+bn.hc.aic
+bn.iamb.x2
+```
+Vemos como el basado en aic tiene 18 arcos, todos directos, frente a los 11 del basado en x2, donde hay arcos directos e indirectos. Los tests usados en el procedimiento de aprendizaje son más en x2. Ahora vamos a ver si tienen la misma estructura de red.
+```{r}
+bnlearn::compare(bn.hc.aic, bn.iamb.x2)
+```
+Podemos ver como los verdades positivos (el número de arcos presentes en ambos) son 1, frente a los falsos positivos (el número de arcos no presentes en ambos) que son 10 también, siendo los falsos negativos (el número de arcos no presentes al inicio pero si al final) son 17. Por lo tanto veamos los modelos:
+```{r}
+par(mfrow = c(1,2))
+graphviz.plot(bn.hc.aic, main="Hill Climbing aic")
+graphviz.plot(bn.iamb.x2, main="Test de independincia IAMB x2")
+```
+Donde podemos ver que son bastante diferentes.
+
+# Conclusiones
+Hemos visto diferentes métodos como Hill Climbing y basados en test de independencia, y comparado entre ellos. Hemos podido ver sus modelos, y como en muchos casos las relaciones parecen tener sentido a simple vista, ya que por ejemplo el turno influirá en el "motivo_ingr" y del "dia". 
